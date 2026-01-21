@@ -11,7 +11,9 @@ import {
   CheckCircle,
   ExternalLink,
   MessageCircle,
+  LogOut,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/layout/PageHeader';
 import { CompanyForm } from '@/components/settings/CompanyForm';
 import { useCompanies, useUpdateCompany } from '@/lib/query/hooks';
@@ -19,6 +21,7 @@ import { useSettingsStore, useUIStore } from '@/lib/stores';
 import { clsx } from 'clsx';
 
 export default function SettingsPage() {
+  const router = useRouter();
   const { data: companies, isLoading } = useCompanies();
   const { googleConnected, telegramConnected, notificationEmail, setNotificationEmail } =
     useSettingsStore();
@@ -27,6 +30,12 @@ export default function SettingsPage() {
   const [showCompanyForm, setShowCompanyForm] = useState(false);
   const [editingCompany, setEditingCompany] = useState<string | null>(null);
   const [emailInput, setEmailInput] = useState(notificationEmail);
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+    router.refresh();
+  };
 
   useEffect(() => {
     setEmailInput(notificationEmail);
@@ -221,6 +230,24 @@ export default function SettingsPage() {
                 </button>
               </div>
             </div>
+          </div>
+        </section>
+
+        {/* Account Section */}
+        <section>
+          <h2 className="text-lg font-display font-semibold text-white flex items-center gap-2 mb-4">
+            <LogOut className="w-5 h-5 text-accent" />
+            Account
+          </h2>
+
+          <div className="card">
+            <button
+              onClick={handleLogout}
+              className="w-full flex items-center justify-center gap-2 py-2 text-error hover:bg-error/10 rounded-lg transition-colors"
+            >
+              <LogOut className="w-4 h-4" />
+              Sign Out
+            </button>
           </div>
         </section>
 
