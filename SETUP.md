@@ -53,6 +53,14 @@ GOOGLE_REDIRECT_URI=https://yourapp.vercel.app/api/auth/google/callback
 TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
 TELEGRAM_WEBHOOK_SECRET=your-random-secret
 
+# WhatsApp (Twilio)
+TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxx
+TWILIO_AUTH_TOKEN=your-auth-token
+TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886
+
+# App Auth
+APP_PASSWORD=your-secure-password
+
 # Cron Job Security
 CRON_SECRET=your-random-secret-for-cron
 
@@ -115,7 +123,29 @@ LLM_MODEL=meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo
    curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://yourapp.vercel.app/api/telegram&secret_token=<SECRET>"
    ```
 
-### 5. Cron Job (Scheduled Tasks)
+### 5. WhatsApp (Twilio)
+
+WhatsApp integration via Twilio allows chat-based interaction with the app.
+
+1. Sign up at [twilio.com](https://www.twilio.com)
+2. Get your Account SID and Auth Token from the console
+3. Set up WhatsApp Sandbox (for testing) or get a WhatsApp Business number
+4. Add to env:
+   ```env
+   TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxx
+   TWILIO_AUTH_TOKEN=your-auth-token
+   TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886
+   ```
+5. Set webhook URL in Twilio console:
+   - **URL**: `https://yourapp.vercel.app/api/whatsapp`
+   - **Method**: POST
+
+**WhatsApp Features:**
+- Natural language invoice creation: "Create invoice for ABC Corp $5000 for consulting"
+- View invoices and athletes
+- Send receipt photos for automatic processing
+
+### 6. Cron Job (Scheduled Tasks)
 
 Since Vercel cron requires Pro plan, use [cron-job.org](https://cron-job.org) (free):
 
@@ -175,6 +205,14 @@ npm run db:studio
 - AI extracts date, amount, description
 - Auto-generates filename: `MM.DD - $AMOUNT - Description`
 - Uploads to Google Drive (if connected)
+- **Auto-sync from Drive**: Put receipts in `Receipts-Inbox` folder, they'll be processed automatically
+- Images stored in DB for reference/verification
+
+### WhatsApp/Telegram Bot
+- Natural language commands: "Create invoice for [client] $[amount]"
+- View invoices and athletes
+- Send receipt photos for processing
+- Interactive menus with buttons
 
 ## CSV Import Format
 
@@ -225,4 +263,4 @@ If Telegram bot is configured:
 - **Email**: Resend
 - **LLM**: OpenAI-compatible API
 - **Storage**: Google Drive API
-- **Bot**: Telegram Bot API
+- **Messaging**: Telegram Bot API, Twilio WhatsApp
