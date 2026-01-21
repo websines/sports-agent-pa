@@ -9,7 +9,7 @@ import { uploadFileToDrive, isAuthenticated } from '@/lib/services/google-drive'
 // Vercel cron - runs every hour
 export const dynamic = 'force-dynamic';
 
-export async function GET(request: Request) {
+async function handleCron(request: Request) {
   // Verify cron secret in production
   const authHeader = request.headers.get('authorization');
   if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -193,4 +193,13 @@ function generateAthletesHtml(athleteList: typeof athletes.$inferSelect[]): stri
     html += '</div>';
   }
   return html;
+}
+
+// Support both GET and POST for external cron services
+export async function GET(request: Request) {
+  return handleCron(request);
+}
+
+export async function POST(request: Request) {
+  return handleCron(request);
 }
