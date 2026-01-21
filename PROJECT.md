@@ -44,6 +44,14 @@ This app helps sports agents (specifically volleyball agents) with three core wo
 - Send receipt photos for instant processing
 - Interactive menus with buttons
 
+### AI Command Bar (Web App)
+- Natural language interface accessible via floating button or `Ctrl+K` shortcut
+- Create invoices: "Create invoice for ABC Corp $5000 for consulting"
+- Add receipts: "Add expense $45 lunch meeting"
+- List invoices and athletes with filters
+- Shows suggestions and contextual help
+- Results include action links to relevant pages
+
 ### Scheduled Tasks (Cron)
 - Processes scheduled invoices when due
 - Sends scheduled athlete blast emails
@@ -89,6 +97,7 @@ src/
 │   │   ├── athletes/             # CRUD for athletes
 │   │   ├── auth/                 # Login, logout, Google OAuth
 │   │   ├── blasts/               # Athlete blast campaigns
+│   │   ├── command/              # AI command parsing endpoint
 │   │   ├── companies/            # Billing company management
 │   │   ├── contacts/             # Contact CRUD & CSV import
 │   │   ├── cron/                 # Scheduled task handler
@@ -113,6 +122,7 @@ src/
 │   ├── settings/
 │   │   └── CompanyForm.tsx       # Add/edit company
 │   └── ui/
+│       ├── CommandBar.tsx        # AI command modal (Ctrl+K)
 │       └── Toast.tsx             # Notification toasts
 ├── lib/
 │   ├── db/
@@ -211,6 +221,9 @@ Billing entities (US and EU companies):
 - `GET/POST /api/receipts` - List/create receipts
 - `GET/PUT/DELETE /api/receipts/[id]` - Single receipt
 - `GET /api/receipts/[id]/image` - Serve receipt image
+
+### AI Command
+- `POST /api/command` - Parse natural language and execute commands
 
 ### Webhooks
 - `GET/POST /api/cron` - Cron job handler

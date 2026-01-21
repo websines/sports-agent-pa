@@ -3,6 +3,7 @@
 import { ReactNode } from 'react';
 import { BottomNav } from './BottomNav';
 import { Toasts } from '@/components/ui/Toast';
+import { CommandBar } from '@/components/ui/CommandBar';
 
 interface AppShellProps {
   children: ReactNode;
@@ -27,6 +28,9 @@ export function AppShell({ children }: AppShellProps) {
 
       {/* Notifications */}
       <Toasts />
+
+      {/* AI Command Bar */}
+      <CommandBar />
     </div>
   );
 }

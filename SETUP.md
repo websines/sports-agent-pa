@@ -208,6 +208,13 @@ npm run db:studio
 - **Auto-sync from Drive**: Put receipts in `Receipts-Inbox` folder, they'll be processed automatically
 - Images stored in DB for reference/verification
 
+### AI Command Bar
+- Press `Ctrl+K` or tap the floating sparkle button to open
+- Natural language commands: "Create invoice for [client] $[amount]"
+- Add expenses: "Add expense $45 lunch meeting"
+- View invoices and athletes
+- Suggestions and contextual help included
+
 ### WhatsApp/Telegram Bot
 - Natural language commands: "Create invoice for [client] $[amount]"
 - View invoices and athletes
