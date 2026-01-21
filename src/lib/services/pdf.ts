@@ -309,6 +309,7 @@ function InvoiceDocument({ invoice, company }: { invoice: Invoice; company: Comp
 
 export async function generateInvoicePDF(invoice: Invoice, company: Company): Promise<Buffer> {
   const doc = createElement(InvoiceDocument, { invoice, company });
-  const buffer = await renderToBuffer(doc);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const buffer = await renderToBuffer(doc as any);
   return Buffer.from(buffer);
 }

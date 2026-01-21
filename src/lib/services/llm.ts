@@ -1,10 +1,17 @@
 import OpenAI from 'openai';
 
-// OpenAI-compatible client - can switch to Groq, Together, etc.
-const client = new OpenAI({
-  baseURL: process.env.LLM_BASE_URL || 'https://api.openai.com/v1',
-  apiKey: process.env.LLM_API_KEY || '',
-});
+// Lazy-loaded OpenAI-compatible client
+let _client: OpenAI | null = null;
+
+function getClient(): OpenAI {
+  if (!_client) {
+    _client = new OpenAI({
+      baseURL: process.env.LLM_BASE_URL || 'https://api.openai.com/v1',
+      apiKey: process.env.LLM_API_KEY || '',
+    });
+  }
+  return _client;
+}
 
 export interface ReceiptData {
   date: string; // MM.DD format
@@ -15,6 +22,7 @@ export interface ReceiptData {
 }
 
 export async function extractReceiptData(imageBase64: string): Promise<ReceiptData> {
+  const client = getClient();
   const response = await client.chat.completions.create({
     model: process.env.LLM_MODEL || 'gpt-4o',
     messages: [

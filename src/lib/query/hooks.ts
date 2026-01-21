@@ -1,5 +1,24 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import type { Invoice, Athlete, Contact, Receipt, Company, Blast } from '@/lib/db/schema';
+import type { Invoice, Athlete, Contact, Receipt, Company, Blast, InvoiceItem } from '@/lib/db/schema';
+
+// Input types for mutations (allow strings for dates since API handles conversion)
+type InvoiceInput = {
+  companyId?: string;
+  clientName?: string;
+  clientEmail?: string;
+  clientAddress?: string;
+  clientVatNumber?: string | null;
+  description?: string;
+  items?: InvoiceItem[];
+  subtotal?: number;
+  taxRate?: number;
+  taxAmount?: number;
+  total?: number;
+  currency?: string;
+  status?: string;
+  scheduledDate?: string | null;
+  notes?: string | null;
+};
 
 // API helpers
 async function fetchAPI<T>(url: string, options?: RequestInit): Promise<T> {
@@ -23,7 +42,7 @@ export function useInvoices() {
 export function useCreateInvoice() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<Invoice>) =>
+    mutationFn: (data: InvoiceInput) =>
       fetchAPI<Invoice>('/api/invoices', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -38,7 +57,7 @@ export function useCreateInvoice() {
 export function useUpdateInvoice() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, ...data }: Partial<Invoice> & { id: string }) =>
+    mutationFn: ({ id, ...data }: InvoiceInput & { id: string }) =>
       fetchAPI<Invoice>(`/api/invoices/${id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },

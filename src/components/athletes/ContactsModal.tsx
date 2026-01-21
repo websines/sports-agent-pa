@@ -48,8 +48,9 @@ export function ContactsModal({ onClose }: ContactsModalProps) {
       header: true,
       skipEmptyLines: true,
       complete: (results) => {
-        const contacts = results.data
-          .map((row: Record<string, string>) => ({
+        const data = results.data as Record<string, string>[];
+        const contacts = data
+          .map((row) => ({
             name: row.name || row.Name || '',
             email: row.email || row.Email || '',
             club: row.club || row.Club || '',

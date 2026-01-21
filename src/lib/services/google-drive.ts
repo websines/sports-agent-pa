@@ -1,4 +1,4 @@
-import { google } from 'googleapis';
+import { google, Auth } from 'googleapis';
 
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
@@ -7,11 +7,7 @@ const oauth2Client = new google.auth.OAuth2(
 );
 
 // Store tokens in memory (in production, store in DB)
-let tokens: {
-  access_token?: string;
-  refresh_token?: string;
-  expiry_date?: number;
-} | null = null;
+let tokens: Auth.Credentials | null = null;
 
 export function getAuthUrl() {
   return oauth2Client.generateAuthUrl({
@@ -28,7 +24,7 @@ export async function handleCallback(code: string) {
   return newTokens;
 }
 
-export function setTokens(newTokens: typeof tokens) {
+export function setTokens(newTokens: Auth.Credentials | null) {
   tokens = newTokens;
   if (tokens) {
     oauth2Client.setCredentials(tokens);
