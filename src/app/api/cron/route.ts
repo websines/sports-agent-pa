@@ -4,7 +4,15 @@ import { eq, lte, and, inArray } from 'drizzle-orm';
 import { sendInvoiceEmail, sendAthleteBlastEmail, sendNotification } from '@/lib/services/email';
 import { generateInvoicePDF } from '@/lib/services/pdf';
 import { extractReceiptData, generateReceiptFilename } from '@/lib/services/llm';
-import { uploadFileToDrive, isAuthenticated } from '@/lib/services/google-drive';
+import {
+  uploadFileToDrive,
+  isAuthenticated,
+  listFilesInFolder,
+  downloadFileFromDrive,
+  moveFileToDrive,
+  getProcessedFolderId,
+} from '@/lib/services/google-drive';
+import { nanoid } from 'nanoid';
 
 // Vercel cron - runs every hour
 export const dynamic = 'force-dynamic';
@@ -20,6 +28,7 @@ async function handleCron(request: Request) {
     invoices: { processed: 0, failed: 0 },
     blasts: { processed: 0, failed: 0 },
     receipts: { processed: 0, failed: 0 },
+    driveSync: { processed: 0, failed: 0 },
   };
 
   try {
@@ -143,7 +152,7 @@ async function handleCron(request: Request) {
             driveUrl,
             driveFileId,
             status: 'done',
-            rawImageBase64: null,
+            // Keep rawImageBase64 for reference - don't clear it
             processedAt: new Date(),
           })
           .where(eq(receipts.id, receipt.id));
@@ -159,13 +168,74 @@ async function handleCron(request: Request) {
       }
     }
 
+    // 4. Sync receipts from Google Drive inbox folder
+    if (isAuthenticated()) {
+      try {
+        // List files in the Receipts-Inbox folder
+        const driveFiles = await listFilesInFolder(undefined, 'Receipts-Inbox');
+        const processedFolderId = await getProcessedFolderId();
+
+        // Get list of already processed Drive file IDs
+        const existingReceipts = await db
+          .select({ driveFileId: receipts.driveFileId })
+          .from(receipts)
+          .where(eq(receipts.status, 'done'));
+        const processedIds = new Set(existingReceipts.map((r) => r.driveFileId).filter(Boolean));
+
+        for (const file of driveFiles) {
+          // Skip if already processed
+          if (processedIds.has(file.id)) continue;
+
+          try {
+            // Download the file
+            const buffer = await downloadFileFromDrive(file.id);
+            const base64 = buffer.toString('base64');
+
+            // Extract receipt data
+            const data = await extractReceiptData(base64);
+            const filename = generateReceiptFilename(data);
+
+            // Move file to processed folder with new name
+            await moveFileToDrive(file.id, processedFolderId, `${filename}.jpg`);
+
+            // Get the web view link for the moved file
+            const driveUrl = `https://drive.google.com/file/d/${file.id}/view`;
+
+            // Save to database with image data
+            const receiptId = nanoid();
+            await db.insert(receipts).values({
+              id: receiptId,
+              date: data.date,
+              amount: data.amount,
+              currency: data.currency,
+              description: data.description,
+              category: data.category || null,
+              generatedFilename: filename,
+              driveUrl,
+              driveFileId: file.id,
+              rawImageBase64: base64, // Keep for reference
+              status: 'done',
+              processedAt: new Date(),
+            });
+
+            results.driveSync.processed++;
+          } catch (error) {
+            console.error(`Failed to process Drive file ${file.name}:`, error);
+            results.driveSync.failed++;
+          }
+        }
+      } catch (error) {
+        console.error('Drive sync failed:', error);
+      }
+    }
+
     // Send summary notification if anything was processed
     const totalProcessed =
-      results.invoices.processed + results.blasts.processed + results.receipts.processed;
+      results.invoices.processed + results.blasts.processed + results.receipts.processed + results.driveSync.processed;
     if (totalProcessed > 0) {
       await sendNotification(
         'Cron Job Summary',
-        `Processed: ${results.invoices.processed} invoices, ${results.blasts.processed} blasts, ${results.receipts.processed} receipts`
+        `Processed: ${results.invoices.processed} invoices, ${results.blasts.processed} blasts, ${results.receipts.processed} receipts, ${results.driveSync.processed} from Drive`
       );
     }
 

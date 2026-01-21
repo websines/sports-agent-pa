@@ -232,9 +232,11 @@ export const useUIStore = create<UIState>((set) => ({
 interface SettingsState {
   googleConnected: boolean;
   telegramConnected: boolean;
+  whatsappConnected: boolean;
   notificationEmail: string;
   setGoogleConnected: (connected: boolean) => void;
   setTelegramConnected: (connected: boolean) => void;
+  setWhatsappConnected: (connected: boolean) => void;
   setNotificationEmail: (email: string) => void;
 }
 
@@ -243,9 +245,11 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       googleConnected: false,
       telegramConnected: false,
+      whatsappConnected: false,
       notificationEmail: '',
       setGoogleConnected: (connected) => set({ googleConnected: connected }),
       setTelegramConnected: (connected) => set({ telegramConnected: connected }),
+      setWhatsappConnected: (connected) => set({ whatsappConnected: connected }),
       setNotificationEmail: (email) => set({ notificationEmail: email }),
     }),
     {

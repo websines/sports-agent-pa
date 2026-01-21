@@ -12,6 +12,7 @@ import {
   ExternalLink,
   MessageCircle,
   LogOut,
+  Phone,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { PageHeader } from '@/components/layout/PageHeader';
@@ -23,7 +24,7 @@ import { clsx } from 'clsx';
 export default function SettingsPage() {
   const router = useRouter();
   const { data: companies, isLoading } = useCompanies();
-  const { googleConnected, telegramConnected, notificationEmail, setNotificationEmail } =
+  const { googleConnected, telegramConnected, whatsappConnected, notificationEmail, setNotificationEmail } =
     useSettingsStore();
   const { addNotification } = useUIStore();
 
@@ -51,6 +52,13 @@ export default function SettingsPage() {
     const botUsername = process.env.NEXT_PUBLIC_TELEGRAM_BOT_USERNAME || 'SportsAgentPABot';
     window.open(`https://t.me/${botUsername}`, '_blank');
     addNotification('info', 'Start a chat with the bot, then send /start');
+  };
+
+  const handleConnectWhatsApp = () => {
+    // Show instructions for WhatsApp setup
+    const whatsappNumber = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || '+14155238886';
+    window.open(`https://wa.me/${whatsappNumber.replace('+', '')}?text=hi`, '_blank');
+    addNotification('info', 'Send "hi" to connect with WhatsApp');
   };
 
   const handleSaveEmail = () => {
@@ -192,6 +200,40 @@ export default function SettingsPage() {
                 </div>
               ) : (
                 <button onClick={handleConnectTelegram} className="btn-secondary text-sm">
+                  <ExternalLink className="w-4 h-4" />
+                  Connect
+                </button>
+              )}
+            </div>
+
+            {/* WhatsApp */}
+            <div className="card flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div
+                  className={clsx(
+                    'w-10 h-10 rounded-xl flex items-center justify-center',
+                    whatsappConnected ? 'bg-success/10' : 'bg-slate/30'
+                  )}
+                >
+                  <Phone
+                    className={clsx('w-5 h-5', whatsappConnected ? 'text-success' : 'text-silver')}
+                  />
+                </div>
+                <div>
+                  <p className="font-medium text-white">WhatsApp</p>
+                  <p className="text-xs text-silver">
+                    {whatsappConnected ? 'Connected' : 'Chat with AI assistant'}
+                  </p>
+                </div>
+              </div>
+
+              {whatsappConnected ? (
+                <div className="flex items-center gap-2 text-success">
+                  <CheckCircle className="w-5 h-5" />
+                  <span className="text-sm">Connected</span>
+                </div>
+              ) : (
+                <button onClick={handleConnectWhatsApp} className="btn-secondary text-sm">
                   <ExternalLink className="w-4 h-4" />
                   Connect
                 </button>

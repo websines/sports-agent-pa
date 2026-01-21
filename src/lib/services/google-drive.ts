@@ -118,3 +118,155 @@ export async function uploadFileToDrive(
     webViewLink: response.data.webViewLink!,
   };
 }
+
+// List files in a folder (for syncing)
+export async function listFilesInFolder(
+  folderId?: string,
+  folderName: string = 'Receipts-Inbox'
+): Promise<Array<{ id: string; name: string; mimeType: string; createdTime: string }>> {
+  if (!tokens) {
+    throw new Error('Not authenticated with Google Drive');
+  }
+
+  oauth2Client.setCredentials(tokens);
+  const drive = google.drive({ version: 'v3', auth: oauth2Client });
+
+  let targetFolderId = folderId;
+
+  // Find the folder by name if no ID provided
+  if (!targetFolderId) {
+    const folderSearch = await drive.files.list({
+      q: `name='${folderName}' and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+      fields: 'files(id, name)',
+    });
+
+    if (!folderSearch.data.files || folderSearch.data.files.length === 0) {
+      // Create the inbox folder if it doesn't exist
+      const folder = await drive.files.create({
+        requestBody: {
+          name: folderName,
+          mimeType: 'application/vnd.google-apps.folder',
+        },
+        fields: 'id',
+      });
+      targetFolderId = folder.data.id!;
+      return []; // New folder, no files yet
+    }
+
+    targetFolderId = folderSearch.data.files[0].id!;
+  }
+
+  // List image files in the folder
+  const response = await drive.files.list({
+    q: `'${targetFolderId}' in parents and (mimeType contains 'image/') and trashed=false`,
+    fields: 'files(id, name, mimeType, createdTime)',
+    orderBy: 'createdTime desc',
+    pageSize: 50,
+  });
+
+  return (response.data.files || []).map((f) => ({
+    id: f.id!,
+    name: f.name!,
+    mimeType: f.mimeType!,
+    createdTime: f.createdTime!,
+  }));
+}
+
+// Download a file from Drive
+export async function downloadFileFromDrive(fileId: string): Promise<Buffer> {
+  if (!tokens) {
+    throw new Error('Not authenticated with Google Drive');
+  }
+
+  oauth2Client.setCredentials(tokens);
+  const drive = google.drive({ version: 'v3', auth: oauth2Client });
+
+  const response = await drive.files.get(
+    { fileId, alt: 'media' },
+    { responseType: 'arraybuffer' }
+  );
+
+  return Buffer.from(response.data as ArrayBuffer);
+}
+
+// Move a file to a different folder
+export async function moveFileToDrive(
+  fileId: string,
+  newFolderId: string,
+  newName?: string
+): Promise<void> {
+  if (!tokens) {
+    throw new Error('Not authenticated with Google Drive');
+  }
+
+  oauth2Client.setCredentials(tokens);
+  const drive = google.drive({ version: 'v3', auth: oauth2Client });
+
+  // Get current parents
+  const file = await drive.files.get({
+    fileId,
+    fields: 'parents',
+  });
+
+  const previousParents = (file.data.parents || []).join(',');
+
+  // Move to new folder
+  await drive.files.update({
+    fileId,
+    addParents: newFolderId,
+    removeParents: previousParents,
+    requestBody: newName ? { name: newName } : undefined,
+  });
+}
+
+// Get or create processed folder
+export async function getProcessedFolderId(): Promise<string> {
+  if (!tokens) {
+    throw new Error('Not authenticated with Google Drive');
+  }
+
+  oauth2Client.setCredentials(tokens);
+  const drive = google.drive({ version: 'v3', auth: oauth2Client });
+
+  // Look for Expenses folder
+  let expensesFolderId: string;
+  const expensesSearch = await drive.files.list({
+    q: "name='Expenses' and mimeType='application/vnd.google-apps.folder' and trashed=false",
+    fields: 'files(id)',
+  });
+
+  if (expensesSearch.data.files && expensesSearch.data.files.length > 0) {
+    expensesFolderId = expensesSearch.data.files[0].id!;
+  } else {
+    const folder = await drive.files.create({
+      requestBody: {
+        name: 'Expenses',
+        mimeType: 'application/vnd.google-apps.folder',
+      },
+      fields: 'id',
+    });
+    expensesFolderId = folder.data.id!;
+  }
+
+  // Get or create year subfolder
+  const year = new Date().getFullYear().toString();
+  const yearSearch = await drive.files.list({
+    q: `name='${year}' and '${expensesFolderId}' in parents and mimeType='application/vnd.google-apps.folder' and trashed=false`,
+    fields: 'files(id)',
+  });
+
+  if (yearSearch.data.files && yearSearch.data.files.length > 0) {
+    return yearSearch.data.files[0].id!;
+  }
+
+  const yearFolder = await drive.files.create({
+    requestBody: {
+      name: year,
+      mimeType: 'application/vnd.google-apps.folder',
+      parents: [expensesFolderId],
+    },
+    fields: 'id',
+  });
+
+  return yearFolder.data.id!;
+}
