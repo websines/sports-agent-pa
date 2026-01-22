@@ -133,9 +133,8 @@ export function InvoiceForm({ invoice, onClose }: InvoiceFormProps) {
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="p-5 space-y-6">
+        {/* Form - scrollable content */}
+        <form id="invoice-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-6">
             {/* Company Selection */}
             <div>
               <label className="input-label">From Company</label>
@@ -357,28 +356,28 @@ export function InvoiceForm({ invoice, onClose }: InvoiceFormProps) {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Footer */}
-          <div className="sticky bottom-0 p-5 bg-carbon border-t border-slate/30 safe-bottom">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-silver">Total</span>
-              <span className="text-2xl font-display font-bold text-white">
-                {currencySymbol}{total.toLocaleString()}
-              </span>
-            </div>
-            <button
-              type="submit"
-              disabled={createInvoice.isPending || updateInvoice.isPending}
-              className="btn-primary w-full"
-            >
-              {(createInvoice.isPending || updateInvoice.isPending) && (
-                <div className="spinner border-white/30 border-t-white" />
-              )}
-              {invoice ? 'Update Invoice' : 'Create Invoice'}
-            </button>
-          </div>
         </form>
+
+        {/* Footer - always visible */}
+        <div className="shrink-0 p-5 bg-carbon border-t border-slate/30 safe-bottom">
+          <div className="flex items-center justify-between mb-4">
+            <span className="text-silver">Total</span>
+            <span className="text-2xl font-display font-bold text-white">
+              {currencySymbol}{total.toLocaleString()}
+            </span>
+          </div>
+          <button
+            type="submit"
+            form="invoice-form"
+            disabled={createInvoice.isPending || updateInvoice.isPending}
+            className="btn-primary w-full"
+          >
+            {(createInvoice.isPending || updateInvoice.isPending) && (
+              <div className="spinner border-white/30 border-t-white" />
+            )}
+            {invoice ? 'Update Invoice' : 'Create Invoice'}
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   );

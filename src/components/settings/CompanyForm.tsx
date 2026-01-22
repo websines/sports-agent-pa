@@ -104,9 +104,8 @@ export function CompanyForm({ companyId, onClose }: CompanyFormProps) {
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="p-5 space-y-4">
+        {/* Form - scrollable content */}
+        <form id="company-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
             {/* Region Selection */}
             <div>
               <label className="input-label">Region</label>
@@ -225,32 +224,32 @@ export function CompanyForm({ companyId, onClose }: CompanyFormProps) {
               />
             </div>
 
-            <div>
-              <label className="input-label">Phone</label>
-              <input
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
-                className="input"
-                placeholder="+1 (555) 123-4567"
-              />
-            </div>
-          </div>
-
-          {/* Footer */}
-          <div className="sticky bottom-0 p-5 bg-carbon border-t border-slate/30 safe-bottom">
-            <button
-              type="submit"
-              disabled={createCompany.isPending || updateCompany.isPending}
-              className="btn-primary w-full"
-            >
-              {(createCompany.isPending || updateCompany.isPending) && (
-                <div className="spinner border-white/30 border-t-white" />
-              )}
-              {companyId ? 'Update Company' : 'Add Company'}
-            </button>
+          <div>
+            <label className="input-label">Phone</label>
+            <input
+              type="tel"
+              value={formData.phone}
+              onChange={(e) => setFormData((prev) => ({ ...prev, phone: e.target.value }))}
+              className="input"
+              placeholder="+1 (555) 123-4567"
+            />
           </div>
         </form>
+
+        {/* Footer - always visible */}
+        <div className="shrink-0 p-5 bg-carbon border-t border-slate/30 safe-bottom">
+          <button
+            type="submit"
+            form="company-form"
+            disabled={createCompany.isPending || updateCompany.isPending}
+            className="btn-primary w-full"
+          >
+            {(createCompany.isPending || updateCompany.isPending) && (
+              <div className="spinner border-white/30 border-t-white" />
+            )}
+            {companyId ? 'Update Company' : 'Add Company'}
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   );

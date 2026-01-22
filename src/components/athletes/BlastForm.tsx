@@ -82,9 +82,8 @@ export function BlastForm({ onClose }: BlastFormProps) {
           </button>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto">
-          <div className="p-5 space-y-6">
+        {/* Form - scrollable content */}
+        <form id="blast-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-6">
             {/* Summary */}
             <div className="grid grid-cols-2 gap-4">
               <div className="card">
@@ -221,32 +220,32 @@ export function BlastForm({ onClose }: BlastFormProps) {
                 </div>
               )}
             </div>
-          </div>
-
-          {/* Footer */}
-          <div className="sticky bottom-0 p-5 bg-carbon border-t border-slate/30 safe-bottom">
-            <button
-              type="submit"
-              disabled={createBlast.isPending || sendBlast.isPending}
-              className="btn-primary w-full"
-            >
-              {(createBlast.isPending || sendBlast.isPending) && (
-                <div className="spinner border-white/30 border-t-white" />
-              )}
-              {sendOption === 'now' ? (
-                <>
-                  <Send className="w-4 h-4" />
-                  Send to {selectedContacts.length} Contacts
-                </>
-              ) : (
-                <>
-                  <Clock className="w-4 h-4" />
-                  Schedule Blast
-                </>
-              )}
-            </button>
-          </div>
         </form>
+
+        {/* Footer - always visible */}
+        <div className="shrink-0 p-5 bg-carbon border-t border-slate/30 safe-bottom">
+          <button
+            type="submit"
+            form="blast-form"
+            disabled={createBlast.isPending || sendBlast.isPending}
+            className="btn-primary w-full"
+          >
+            {(createBlast.isPending || sendBlast.isPending) && (
+              <div className="spinner border-white/30 border-t-white" />
+            )}
+            {sendOption === 'now' ? (
+              <>
+                <Send className="w-4 h-4" />
+                Send to {selectedContacts.length} Contacts
+              </>
+            ) : (
+              <>
+                <Clock className="w-4 h-4" />
+                Schedule Blast
+              </>
+            )}
+          </button>
+        </div>
       </motion.div>
     </motion.div>
   );
