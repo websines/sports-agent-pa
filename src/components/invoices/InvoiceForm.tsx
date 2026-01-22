@@ -118,7 +118,7 @@ export function InvoiceForm({ invoice, onClose }: InvoiceFormProps) {
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
         onClick={(e) => e.stopPropagation()}
-        className="absolute inset-x-0 bottom-0 top-12 bg-carbon rounded-t-3xl border-t border-slate/30 flex flex-col"
+        className="fixed inset-x-0 bottom-0 top-12 bg-carbon rounded-t-3xl border-t border-slate/30 grid grid-rows-[auto_1fr_auto]"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate/30">
@@ -134,7 +134,7 @@ export function InvoiceForm({ invoice, onClose }: InvoiceFormProps) {
         </div>
 
         {/* Form - scrollable content */}
-        <form id="invoice-form" onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto p-5 space-y-6">
+        <form id="invoice-form" onSubmit={handleSubmit} className="overflow-y-auto p-5 space-y-6">
             {/* Company Selection */}
             <div>
               <label className="input-label">From Company</label>
@@ -359,7 +359,7 @@ export function InvoiceForm({ invoice, onClose }: InvoiceFormProps) {
         </form>
 
         {/* Footer - always visible */}
-        <div className="shrink-0 p-5 bg-carbon border-t border-slate/30 safe-bottom">
+        <div className="p-5 bg-carbon border-t border-slate/30 safe-bottom">
           <div className="flex items-center justify-between mb-4">
             <span className="text-silver">Total</span>
             <span className="text-2xl font-display font-bold text-white">
