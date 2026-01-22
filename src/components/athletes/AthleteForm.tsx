@@ -78,7 +78,7 @@ export function AthleteForm({ onClose }: AthleteFormProps) {
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
         onClick={(e) => e.stopPropagation()}
-        className="fixed inset-x-0 bottom-0 top-12 bg-carbon rounded-t-3xl border-t border-slate/30 grid grid-rows-[auto_1fr_auto]"
+        className="fixed inset-x-0 bottom-20 top-12 bg-carbon rounded-3xl border border-slate/30 grid grid-rows-[auto_1fr_auto] mx-2"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate/30">
@@ -235,7 +235,7 @@ export function AthleteForm({ onClose }: AthleteFormProps) {
         </form>
 
         {/* Footer - always visible */}
-        <div className="p-5 bg-carbon border-t border-slate/30 safe-bottom">
+        <div className="p-5 bg-carbon border-t border-slate/30 rounded-b-3xl">
           <button
             type="submit"
             form="athlete-form"
