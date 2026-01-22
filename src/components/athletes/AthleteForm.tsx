@@ -69,7 +69,7 @@ export function AthleteForm({ onClose }: AthleteFormProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-void/80 backdrop-blur-sm"
+      className="fixed inset-0 z-[60] bg-void/80 backdrop-blur-sm"
       onClick={onClose}
     >
       <motion.div
@@ -78,7 +78,7 @@ export function AthleteForm({ onClose }: AthleteFormProps) {
         exit={{ y: '100%' }}
         transition={{ type: 'spring', damping: 30, stiffness: 300 }}
         onClick={(e) => e.stopPropagation()}
-        className="absolute inset-x-0 bottom-0 top-12 bg-carbon rounded-t-3xl border-t border-slate/30 overflow-hidden flex flex-col"
+        className="absolute inset-x-0 bottom-0 top-12 bg-carbon rounded-t-3xl border-t border-slate/30 flex flex-col"
       >
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate/30">
@@ -92,7 +92,7 @@ export function AthleteForm({ onClose }: AthleteFormProps) {
         </div>
 
         {/* Form - scrollable content */}
-        <form id="athlete-form" onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-5 space-y-4">
+        <form id="athlete-form" onSubmit={handleSubmit} className="flex-1 min-h-0 overflow-y-auto p-5 space-y-4">
           <div>
             <label className="input-label">Name *</label>
             <input
