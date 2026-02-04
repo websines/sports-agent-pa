@@ -17,6 +17,8 @@ import { PageHeader } from '@/components/layout/PageHeader';
 import { AthleteForm } from '@/components/athletes/AthleteForm';
 import { BlastForm } from '@/components/athletes/BlastForm';
 import { ContactsModal } from '@/components/athletes/ContactsModal';
+import { AthleteImportModal } from '@/components/athletes/AthleteImportModal';
+import { FileText } from 'lucide-react';
 import { useAthletes, useContacts } from '@/lib/query/hooks';
 import { useAthleteStore, useContactStore, useUIStore } from '@/lib/stores';
 import { clsx } from 'clsx';
@@ -27,6 +29,7 @@ export default function AthletesPage() {
   const [showAthleteForm, setShowAthleteForm] = useState(false);
   const [showBlastForm, setShowBlastForm] = useState(false);
   const [showContacts, setShowContacts] = useState(false);
+  const [showAthleteImport, setShowAthleteImport] = useState(false);
   const [activeTab, setActiveTab] = useState<'roster' | 'contacts'>('roster');
 
   const { data: athletes, isLoading: athletesLoading } = useAthletes();
@@ -96,6 +99,13 @@ export default function AthletesPage() {
             >
               <Users className="w-4 h-4" />
               <span className="hidden sm:inline">Contacts</span>
+            </button>
+            <button
+              onClick={() => setShowAthleteImport(true)}
+              className="btn-secondary"
+              title="Import from DOCX"
+            >
+              <FileText className="w-4 h-4" />
             </button>
             <button onClick={() => setShowAthleteForm(true)} className="btn-primary">
               <Plus className="w-4 h-4" />
@@ -386,6 +396,7 @@ export default function AthletesPage() {
         {showAthleteForm && <AthleteForm onClose={() => setShowAthleteForm(false)} />}
         {showBlastForm && <BlastForm onClose={() => setShowBlastForm(false)} />}
         {showContacts && <ContactsModal onClose={() => setShowContacts(false)} />}
+        {showAthleteImport && <AthleteImportModal onClose={() => setShowAthleteImport(false)} />}
       </AnimatePresence>
     </>
   );

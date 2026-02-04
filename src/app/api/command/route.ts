@@ -1,8 +1,63 @@
 import { NextResponse } from 'next/server';
-import { parseAgentMessage, parseInvoiceFromMessage } from '@/lib/services/llm';
+import { parseAgentMessage, parseInvoiceFromMessage, isLLMConfigured, type AgentIntent } from '@/lib/services/llm';
 import { db, invoices, receipts, athletes, companies } from '@/lib/db';
 import { desc } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+
+// Basic fallback parser when LLM is not configured
+function parseMessageBasic(message: string): AgentIntent {
+  const lower = message.toLowerCase().trim();
+
+  // List invoices
+  if (lower.includes('invoice') && (lower.includes('show') || lower.includes('list') || lower.includes('view'))) {
+    return { type: 'list_invoices' };
+  }
+
+  // List athletes
+  if (lower.includes('athlete') && (lower.includes('show') || lower.includes('list') || lower.includes('view'))) {
+    return { type: 'list_athletes' };
+  }
+
+  // Create receipt/expense - patterns like "$45 lunch" or "expense $50 taxi"
+  const expenseMatch = message.match(/\$(\d+(?:\.\d{2})?)\s+(.+)/i) || message.match(/(\d+(?:\.\d{2})?)\s*(?:dollars?|usd)?\s+(.+)/i);
+  if (expenseMatch || lower.includes('expense') || lower.includes('receipt')) {
+    const amountMatch = message.match(/\$?(\d+(?:\.\d{2})?)/);
+    const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
+    // Get description - everything after the amount or after keywords
+    let description = message.replace(/\$?\d+(?:\.\d{2})?/g, '').replace(/expense|receipt|add|for/gi, '').trim();
+    if (!description) description = 'Expense';
+
+    return {
+      type: 'create_receipt',
+      data: { amount, description, currency: 'USD' },
+    };
+  }
+
+  // Create invoice - pattern like "invoice [client] $[amount]" or "create invoice for [client]"
+  if (lower.includes('invoice') && (lower.includes('create') || lower.includes('new') || lower.includes('for'))) {
+    const amountMatch = message.match(/\$(\d+(?:,\d{3})*(?:\.\d{2})?)/);
+    const amount = amountMatch ? parseFloat(amountMatch[1].replace(/,/g, '')) : 0;
+
+    // Try to extract client name - text after "for" or before the amount
+    let clientName = '';
+    const forMatch = message.match(/(?:for|to)\s+([^$\d]+?)(?:\s+\$|\s+\d|$)/i);
+    if (forMatch) {
+      clientName = forMatch[1].trim();
+    }
+
+    if (clientName && amount > 0) {
+      return {
+        type: 'create_invoice',
+        data: {
+          clientName,
+          items: [{ description: 'Professional Services', quantity: 1, unitPrice: amount }],
+        },
+      };
+    }
+  }
+
+  return { type: 'unknown', message: 'Could not understand the command.' };
+}
 
 // Generate invoice number
 function generateInvoiceNumber(): string {
@@ -21,13 +76,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 });
     }
 
-    // Parse the intent
-    const intent = await parseAgentMessage(message);
+    // Parse the intent - use LLM if configured, otherwise use basic parser
+    let intent: AgentIntent;
+    if (isLLMConfigured()) {
+      intent = await parseAgentMessage(message);
+    } else {
+      intent = parseMessageBasic(message);
+    }
 
     // Handle different intents
     switch (intent.type) {
       case 'create_invoice':
-        return handleCreateInvoice(message);
+        return handleCreateInvoice(message, intent.data);
 
       case 'create_receipt':
         return handleCreateReceipt(intent.data);
@@ -48,7 +108,9 @@ export async function POST(request: Request) {
       default:
         return NextResponse.json({
           title: 'Not sure',
-          message: "I couldn't understand that command. Try something like 'Create invoice for ABC Corp $5000' or 'Add expense $45 lunch'.",
+          message: isLLMConfigured()
+            ? "I couldn't understand that command. Try something like 'Create invoice for ABC Corp $5000' or 'Add expense $45 lunch'."
+            : "Basic commands: 'Show invoices', 'Show athletes', '$45 lunch expense', 'Create invoice for [Client] $[Amount]'. For full AI features, configure LLM_API_KEY.",
         });
     }
   } catch (error) {
@@ -57,7 +119,7 @@ export async function POST(request: Request) {
   }
 }
 
-async function handleCreateInvoice(message: string) {
+async function handleCreateInvoice(message: string, intentData?: { clientName?: string; items?: Array<{ description: string; quantity: number; unitPrice: number }> }) {
   // Get available companies
   const allCompanies = await db
     .select({ id: companies.id, name: companies.name, region: companies.region })
@@ -71,13 +133,26 @@ async function handleCreateInvoice(message: string) {
     });
   }
 
-  // Parse the invoice from natural language
-  const parsed = await parseInvoiceFromMessage(message, allCompanies);
+  // Parse the invoice - use LLM if available, otherwise use pre-parsed data from basic parser
+  let parsed: { clientName: string; clientEmail: string; companyId: string; items: Array<{ description: string; quantity: number; unitPrice: number }>; notes: string } | null = null;
+
+  if (isLLMConfigured()) {
+    parsed = await parseInvoiceFromMessage(message, allCompanies);
+  } else if (intentData?.clientName && intentData?.items?.length) {
+    // Use data from basic parser
+    parsed = {
+      clientName: intentData.clientName,
+      clientEmail: '',
+      companyId: allCompanies[0].id,
+      items: intentData.items,
+      notes: '',
+    };
+  }
 
   if (!parsed || !parsed.clientName || parsed.items.length === 0) {
     return NextResponse.json({
       title: 'Could not parse',
-      message: 'Try: "Create invoice for [Client Name] $[Amount] for [Description]"',
+      message: 'Try: "Create invoice for [Client Name] $[Amount]"',
     });
   }
 

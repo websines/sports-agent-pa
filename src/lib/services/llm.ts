@@ -3,6 +3,10 @@ import OpenAI from 'openai';
 // Lazy-loaded OpenAI-compatible client
 let _client: OpenAI | null = null;
 
+export function isLLMConfigured(): boolean {
+  return !!process.env.LLM_API_KEY;
+}
+
 function getClient(): OpenAI {
   if (!_client) {
     _client = new OpenAI({
