@@ -1,27 +1,122 @@
-import twilio from 'twilio';
+// WhatsApp Business Cloud API (Meta)
+// Docs: https://developers.facebook.com/docs/whatsapp/cloud-api
 
-// Lazy-loaded Twilio client
-let _client: twilio.Twilio | null = null;
+const GRAPH_API_VERSION = 'v18.0';
+const GRAPH_API_URL = `https://graph.facebook.com/${GRAPH_API_VERSION}`;
 
-function getClient(): twilio.Twilio {
-  if (!_client) {
-    const accountSid = process.env.TWILIO_ACCOUNT_SID;
-    const authToken = process.env.TWILIO_AUTH_TOKEN;
-    if (!accountSid || !authToken) {
-      throw new Error('Twilio credentials not configured');
-    }
-    _client = twilio(accountSid, authToken);
-  }
-  return _client;
+function getConfig() {
+  return {
+    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID!,
+    accessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
+    verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || 'sports-agent-pa',
+  };
 }
 
-const FROM_NUMBER = () => process.env.TWILIO_WHATSAPP_NUMBER || 'whatsapp:+14155238886'; // Sandbox default
+export function isWhatsAppConfigured(): boolean {
+  return !!(process.env.WHATSAPP_PHONE_NUMBER_ID && process.env.WHATSAPP_ACCESS_TOKEN);
+}
 
+// Verify webhook (GET request from Meta)
+export function verifyWebhook(searchParams: URLSearchParams): string | null {
+  const mode = searchParams.get('hub.mode');
+  const token = searchParams.get('hub.verify_token');
+  const challenge = searchParams.get('hub.challenge');
+
+  if (mode === 'subscribe' && token === getConfig().verifyToken) {
+    return challenge;
+  }
+  return null;
+}
+
+// Send a text message
+export async function sendWhatsAppMessage(to: string, message: string): Promise<string> {
+  const { phoneNumberId, accessToken } = getConfig();
+
+  const response = await fetch(`${GRAPH_API_URL}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: to.replace('+', ''), // Remove + if present
+      type: 'text',
+      text: { body: message },
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    console.error('WhatsApp API error:', data);
+    throw new Error(data.error?.message || 'Failed to send message');
+  }
+
+  return data.messages?.[0]?.id || '';
+}
+
+// Send interactive button message (up to 3 buttons)
 export interface WhatsAppButton {
   id: string;
   title: string; // max 20 chars
 }
 
+export async function sendWhatsAppButtonMessage(
+  to: string,
+  body: string,
+  buttons: WhatsAppButton[],
+  header?: string,
+  footer?: string
+): Promise<string> {
+  const { phoneNumberId, accessToken } = getConfig();
+
+  const interactive: Record<string, unknown> = {
+    type: 'button',
+    body: { text: body },
+    action: {
+      buttons: buttons.slice(0, 3).map((btn) => ({
+        type: 'reply',
+        reply: {
+          id: btn.id,
+          title: btn.title.slice(0, 20),
+        },
+      })),
+    },
+  };
+
+  if (header) {
+    interactive.header = { type: 'text', text: header };
+  }
+  if (footer) {
+    interactive.footer = { text: footer };
+  }
+
+  const response = await fetch(`${GRAPH_API_URL}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: to.replace('+', ''),
+      type: 'interactive',
+      interactive,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    console.error('WhatsApp API error:', data);
+    throw new Error(data.error?.message || 'Failed to send button message');
+  }
+
+  return data.messages?.[0]?.id || '';
+}
+
+// Send interactive list message (up to 10 items per section)
 export interface WhatsAppListItem {
   id: string;
   title: string; // max 24 chars
@@ -33,61 +128,6 @@ export interface WhatsAppListSection {
   items: WhatsAppListItem[];
 }
 
-// Send a simple text message
-export async function sendWhatsAppMessage(to: string, message: string): Promise<string> {
-  const client = getClient();
-  const toNumber = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
-
-  const result = await client.messages.create({
-    from: FROM_NUMBER(),
-    to: toNumber,
-    body: message,
-  });
-
-  return result.sid;
-}
-
-// Send message with quick reply buttons (max 3 buttons)
-export async function sendWhatsAppButtonMessage(
-  to: string,
-  body: string,
-  buttons: WhatsAppButton[],
-  header?: string,
-  footer?: string
-): Promise<string> {
-  const client = getClient();
-  const toNumber = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
-
-  // Twilio uses ContentSid for templates or interactive messages
-  // For button messages, we use the persistent content API
-  const contentVariables = JSON.stringify({
-    1: body,
-  });
-
-  // Create interactive button message
-  const buttonActions = buttons.slice(0, 3).map((btn) => ({
-    type: 'reply',
-    reply: {
-      id: btn.id,
-      title: btn.title.slice(0, 20),
-    },
-  }));
-
-  const result = await client.messages.create({
-    from: FROM_NUMBER(),
-    to: toNumber,
-    contentSid: process.env.TWILIO_BUTTON_TEMPLATE_SID, // If using templates
-    contentVariables,
-    // Fallback to regular message with button simulation if no template
-    body: !process.env.TWILIO_BUTTON_TEMPLATE_SID
-      ? `${body}\n\n${buttons.map((b, i) => `${i + 1}. ${b.title}`).join('\n')}\n\nReply with a number to select.`
-      : undefined,
-  });
-
-  return result.sid;
-}
-
-// Send interactive list message
 export async function sendWhatsAppListMessage(
   to: string,
   body: string,
@@ -96,172 +136,365 @@ export async function sendWhatsAppListMessage(
   header?: string,
   footer?: string
 ): Promise<string> {
-  const client = getClient();
-  const toNumber = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
+  const { phoneNumberId, accessToken } = getConfig();
 
-  // For list messages without templates, simulate with numbered options
-  let messageBody = body + '\n\n';
-  let optionNum = 1;
+  const interactive: Record<string, unknown> = {
+    type: 'list',
+    body: { text: body },
+    action: {
+      button: buttonText.slice(0, 20),
+      sections: sections.map((section) => ({
+        title: section.title.slice(0, 24),
+        rows: section.items.map((item) => ({
+          id: item.id,
+          title: item.title.slice(0, 24),
+          description: item.description?.slice(0, 72),
+        })),
+      })),
+    },
+  };
 
-  for (const section of sections) {
-    messageBody += `*${section.title}*\n`;
-    for (const item of section.items) {
-      messageBody += `${optionNum}. ${item.title}`;
-      if (item.description) {
-        messageBody += ` - ${item.description}`;
-      }
-      messageBody += '\n';
-      optionNum++;
-    }
-    messageBody += '\n';
+  if (header) {
+    interactive.header = { type: 'text', text: header };
+  }
+  if (footer) {
+    interactive.footer = { text: footer };
   }
 
-  messageBody += 'Reply with a number to select.';
-
-  const result = await client.messages.create({
-    from: FROM_NUMBER(),
-    to: toNumber,
-    body: messageBody,
+  const response = await fetch(`${GRAPH_API_URL}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: to.replace('+', ''),
+      type: 'interactive',
+      interactive,
+    }),
   });
 
-  return result.sid;
+  const data = await response.json();
+  if (!response.ok) {
+    console.error('WhatsApp API error:', data);
+    throw new Error(data.error?.message || 'Failed to send list message');
+  }
+
+  return data.messages?.[0]?.id || '';
 }
 
-// Send message with media (image, document)
-export async function sendWhatsAppMediaMessage(
+// Send image message
+export async function sendWhatsAppImageMessage(
   to: string,
-  mediaUrl: string,
+  imageUrl: string,
   caption?: string
 ): Promise<string> {
-  const client = getClient();
-  const toNumber = to.startsWith('whatsapp:') ? to : `whatsapp:${to}`;
+  const { phoneNumberId, accessToken } = getConfig();
 
-  const result = await client.messages.create({
-    from: FROM_NUMBER(),
-    to: toNumber,
-    mediaUrl: [mediaUrl],
-    body: caption,
+  const response = await fetch(`${GRAPH_API_URL}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: to.replace('+', ''),
+      type: 'image',
+      image: {
+        link: imageUrl,
+        caption,
+      },
+    }),
   });
 
-  return result.sid;
+  const data = await response.json();
+  if (!response.ok) {
+    console.error('WhatsApp API error:', data);
+    throw new Error(data.error?.message || 'Failed to send image');
+  }
+
+  return data.messages?.[0]?.id || '';
 }
 
-// Validate Twilio webhook signature
-export function validateWebhook(
-  signature: string,
-  url: string,
-  params: Record<string, string>
-): boolean {
-  const authToken = process.env.TWILIO_AUTH_TOKEN;
-  if (!authToken) return false;
+// Send document message
+export async function sendWhatsAppDocumentMessage(
+  to: string,
+  documentUrl: string,
+  filename: string,
+  caption?: string
+): Promise<string> {
+  const { phoneNumberId, accessToken } = getConfig();
 
-  return twilio.validateRequest(authToken, signature, url, params);
+  const response = await fetch(`${GRAPH_API_URL}/${phoneNumberId}/messages`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      messaging_product: 'whatsapp',
+      recipient_type: 'individual',
+      to: to.replace('+', ''),
+      type: 'document',
+      document: {
+        link: documentUrl,
+        filename,
+        caption,
+      },
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    console.error('WhatsApp API error:', data);
+    throw new Error(data.error?.message || 'Failed to send document');
+  }
+
+  return data.messages?.[0]?.id || '';
+}
+
+// Download media from WhatsApp
+export async function downloadWhatsAppMedia(mediaId: string): Promise<Buffer> {
+  const { accessToken } = getConfig();
+
+  // First get the media URL
+  const urlResponse = await fetch(`${GRAPH_API_URL}/${mediaId}`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+  });
+
+  const urlData = await urlResponse.json();
+  if (!urlResponse.ok) {
+    throw new Error(urlData.error?.message || 'Failed to get media URL');
+  }
+
+  // Then download the media
+  const mediaResponse = await fetch(urlData.url, {
+    headers: { 'Authorization': `Bearer ${accessToken}` },
+  });
+
+  if (!mediaResponse.ok) {
+    throw new Error('Failed to download media');
+  }
+
+  const arrayBuffer = await mediaResponse.arrayBuffer();
+  return Buffer.from(arrayBuffer);
 }
 
 // Parse incoming webhook message
 export interface IncomingWhatsAppMessage {
   from: string;
-  body: string;
+  name?: string;
   messageId: string;
-  mediaUrl?: string;
-  mediaType?: string;
-  buttonId?: string; // For button responses
-  listId?: string; // For list responses
-  numMedia: number;
+  timestamp: string;
+  type: 'text' | 'image' | 'document' | 'interactive' | 'button' | 'unknown';
+  text?: string;
+  mediaId?: string;
+  mimeType?: string;
+  buttonId?: string;
+  buttonText?: string;
+  listId?: string;
+  listTitle?: string;
 }
 
-export function parseIncomingMessage(body: Record<string, string>): IncomingWhatsAppMessage {
-  return {
-    from: body.From?.replace('whatsapp:', '') || '',
-    body: body.Body || '',
-    messageId: body.MessageSid || '',
-    mediaUrl: body.MediaUrl0,
-    mediaType: body.MediaContentType0,
-    buttonId: body.ButtonPayload,
-    listId: body.ListId,
-    numMedia: parseInt(body.NumMedia || '0', 10),
-  };
+export function parseWebhookMessage(body: unknown): IncomingWhatsAppMessage | null {
+  try {
+    const data = body as {
+      entry?: Array<{
+        changes?: Array<{
+          value?: {
+            messages?: Array<{
+              from: string;
+              id: string;
+              timestamp: string;
+              type: string;
+              text?: { body: string };
+              image?: { id: string; mime_type: string };
+              document?: { id: string; mime_type: string; filename: string };
+              interactive?: {
+                type: string;
+                button_reply?: { id: string; title: string };
+                list_reply?: { id: string; title: string };
+              };
+              button?: { payload: string; text: string };
+            }>;
+            contacts?: Array<{ profile: { name: string }; wa_id: string }>;
+          };
+        }>;
+      }>;
+    };
+
+    const message = data.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
+    const contact = data.entry?.[0]?.changes?.[0]?.value?.contacts?.[0];
+
+    if (!message) return null;
+
+    const parsed: IncomingWhatsAppMessage = {
+      from: message.from,
+      name: contact?.profile?.name,
+      messageId: message.id,
+      timestamp: message.timestamp,
+      type: 'unknown',
+    };
+
+    switch (message.type) {
+      case 'text':
+        parsed.type = 'text';
+        parsed.text = message.text?.body;
+        break;
+      case 'image':
+        parsed.type = 'image';
+        parsed.mediaId = message.image?.id;
+        parsed.mimeType = message.image?.mime_type;
+        break;
+      case 'document':
+        parsed.type = 'document';
+        parsed.mediaId = message.document?.id;
+        parsed.mimeType = message.document?.mime_type;
+        break;
+      case 'interactive':
+        parsed.type = 'interactive';
+        if (message.interactive?.type === 'button_reply') {
+          parsed.buttonId = message.interactive.button_reply?.id;
+          parsed.buttonText = message.interactive.button_reply?.title;
+        } else if (message.interactive?.type === 'list_reply') {
+          parsed.listId = message.interactive.list_reply?.id;
+          parsed.listTitle = message.interactive.list_reply?.title;
+        }
+        break;
+      case 'button':
+        parsed.type = 'button';
+        parsed.buttonId = message.button?.payload;
+        parsed.buttonText = message.button?.text;
+        break;
+    }
+
+    return parsed;
+  } catch (error) {
+    console.error('Failed to parse webhook message:', error);
+    return null;
+  }
 }
 
-// Check if WhatsApp is configured
-export function isWhatsAppConfigured(): boolean {
-  return !!(process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN);
-}
+// ============= Helper functions for common messages =============
 
 // Main menu with buttons
 export async function sendMainMenu(to: string): Promise<string> {
-  const menuText = `*Sports Agent PA*\n\nWhat would you like to do?`;
-
-  const buttons: WhatsAppButton[] = [
-    { id: 'menu_invoices', title: 'Invoices' },
-    { id: 'menu_athletes', title: 'Athletes' },
-    { id: 'menu_receipts', title: 'Receipts' },
-  ];
-
-  // If templates aren't set up, use text-based menu
-  if (!process.env.TWILIO_BUTTON_TEMPLATE_SID) {
-    return sendWhatsAppMessage(
-      to,
-      `${menuText}\n\n1. Invoices\n2. Athletes\n3. Receipts\n\nReply with a number.`
-    );
-  }
-
-  return sendWhatsAppButtonMessage(to, menuText, buttons);
+  return sendWhatsAppButtonMessage(
+    to,
+    'What would you like to do?',
+    [
+      { id: 'menu_invoices', title: 'Invoices' },
+      { id: 'menu_athletes', title: 'Athletes' },
+      { id: 'menu_receipts', title: 'Receipts' },
+    ],
+    'Sports Agent PA',
+    'Reply or tap a button'
+  );
 }
 
-// Send invoice summary
-export async function sendInvoiceSummary(
+// Invoice list
+export async function sendInvoiceList(
   to: string,
   invoices: { id: string; clientName: string; amount: number; status: string }[]
 ): Promise<string> {
   if (invoices.length === 0) {
-    return sendWhatsAppMessage(to, 'No recent invoices found.');
+    return sendWhatsAppMessage(to, 'No invoices found.');
   }
 
-  let message = '*Recent Invoices*\n\n';
-  invoices.slice(0, 5).forEach((inv, i) => {
-    const statusEmoji = inv.status === 'sent' ? '✅' : inv.status === 'scheduled' ? '🕐' : '📝';
-    message += `${i + 1}. ${inv.clientName} - $${inv.amount} ${statusEmoji}\n`;
-  });
+  const sections: WhatsAppListSection[] = [
+    {
+      title: 'Recent Invoices',
+      items: invoices.slice(0, 10).map((inv) => ({
+        id: `invoice_${inv.id}`,
+        title: inv.clientName.slice(0, 24),
+        description: `$${inv.amount} - ${inv.status}`,
+      })),
+    },
+  ];
 
-  message += '\n_Reply with a number for details._';
-
-  return sendWhatsAppMessage(to, message);
+  return sendWhatsAppListMessage(
+    to,
+    `You have ${invoices.length} invoice(s)`,
+    'View Invoices',
+    sections,
+    'Invoices'
+  );
 }
 
-// Send athlete list
+// Athlete list
 export async function sendAthleteList(
   to: string,
-  athletes: { id: string; name: string; position: string }[]
+  athletes: { id: string; name: string; position: string; nationality: string }[]
 ): Promise<string> {
   if (athletes.length === 0) {
     return sendWhatsAppMessage(to, 'No athletes found.');
   }
 
-  let message = '*Athletes*\n\n';
-  athletes.slice(0, 10).forEach((ath, i) => {
-    message += `${i + 1}. ${ath.name} (${ath.position})\n`;
-  });
+  // Group by position
+  const byPosition = athletes.reduce((acc, ath) => {
+    if (!acc[ath.position]) acc[ath.position] = [];
+    acc[ath.position].push(ath);
+    return acc;
+  }, {} as Record<string, typeof athletes>);
 
-  if (athletes.length > 10) {
-    message += `\n_...and ${athletes.length - 10} more_`;
-  }
+  const sections: WhatsAppListSection[] = Object.entries(byPosition)
+    .slice(0, 10)
+    .map(([position, athlts]) => ({
+      title: position,
+      items: athlts.slice(0, 10).map((ath) => ({
+        id: `athlete_${ath.id}`,
+        title: ath.name.slice(0, 24),
+        description: ath.nationality,
+      })),
+    }));
 
-  return sendWhatsAppMessage(to, message);
+  return sendWhatsAppListMessage(
+    to,
+    `You have ${athletes.length} athlete(s)`,
+    'View Athletes',
+    sections,
+    'Athletes'
+  );
 }
 
-// Send receipt confirmation
+// Receipt confirmation with action buttons
 export async function sendReceiptConfirmation(
   to: string,
   filename: string,
-  driveUrl?: string
+  amount: number,
+  category: string
 ): Promise<string> {
-  let message = `*Receipt Processed*\n\n`;
-  message += `Saved as: _${filename}_`;
+  return sendWhatsAppButtonMessage(
+    to,
+    `*Receipt Processed*\n\nFile: ${filename}\nAmount: $${amount}\nCategory: ${category}`,
+    [
+      { id: 'receipt_another', title: 'Add Another' },
+      { id: 'menu_main', title: 'Main Menu' },
+    ],
+    'Receipt Saved',
+    'Uploaded to Google Drive'
+  );
+}
 
-  if (driveUrl) {
-    message += `\n\nView in Drive: ${driveUrl}`;
-  }
-
-  return sendWhatsAppMessage(to, message);
+// Invoice created confirmation
+export async function sendInvoiceConfirmation(
+  to: string,
+  invoiceNumber: string,
+  clientName: string,
+  amount: number
+): Promise<string> {
+  return sendWhatsAppButtonMessage(
+    to,
+    `*Invoice Created*\n\nInvoice #: ${invoiceNumber}\nClient: ${clientName}\nAmount: $${amount}\n\nStatus: Draft`,
+    [
+      { id: 'invoice_send', title: 'Send Now' },
+      { id: 'invoice_edit', title: 'Edit in App' },
+      { id: 'menu_main', title: 'Main Menu' },
+    ],
+    'Invoice Ready'
+  );
 }

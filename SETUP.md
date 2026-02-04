@@ -53,10 +53,10 @@ GOOGLE_REDIRECT_URI=https://yourapp.vercel.app/api/auth/google/callback
 TELEGRAM_BOT_TOKEN=123456789:ABCdefGHIjklMNOpqrsTUVwxyz
 TELEGRAM_WEBHOOK_SECRET=your-random-secret
 
-# WhatsApp (Twilio)
-TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxx
-TWILIO_AUTH_TOKEN=your-auth-token
-TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886
+# WhatsApp Business API (Meta)
+WHATSAPP_PHONE_NUMBER_ID=123456789012345
+WHATSAPP_ACCESS_TOKEN=EAAxxxxxxxxxxxxxxxx
+WHATSAPP_VERIFY_TOKEN=your-random-verify-token
 
 # App Auth
 APP_PASSWORD=your-secure-password
@@ -123,27 +123,35 @@ LLM_MODEL=meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo
    curl "https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://yourapp.vercel.app/api/telegram&secret_token=<SECRET>"
    ```
 
-### 5. WhatsApp (Twilio)
+### 5. WhatsApp Business API (Meta)
 
-WhatsApp integration via Twilio allows chat-based interaction with the app.
+Native WhatsApp Business Cloud API integration with interactive buttons and lists.
 
-1. Sign up at [twilio.com](https://www.twilio.com)
-2. Get your Account SID and Auth Token from the console
-3. Set up WhatsApp Sandbox (for testing) or get a WhatsApp Business number
-4. Add to env:
+**Setup Steps:**
+
+1. Go to [Meta for Developers](https://developers.facebook.com)
+2. Create a new app → Select "Business" type
+3. Add "WhatsApp" product to your app
+4. In WhatsApp settings, get:
+   - **Phone Number ID** (from "From" dropdown)
+   - **Permanent Access Token** (System User token recommended for production)
+5. Add to env:
    ```env
-   TWILIO_ACCOUNT_SID=ACxxxxxxxxxxxx
-   TWILIO_AUTH_TOKEN=your-auth-token
-   TWILIO_WHATSAPP_NUMBER=whatsapp:+14155238886
+   WHATSAPP_PHONE_NUMBER_ID=123456789012345
+   WHATSAPP_ACCESS_TOKEN=EAAxxxxxxxxxxxxxxxx
+   WHATSAPP_VERIFY_TOKEN=your-random-verify-token
    ```
-5. Set webhook URL in Twilio console:
-   - **URL**: `https://yourapp.vercel.app/api/whatsapp`
-   - **Method**: POST
+6. Configure webhook in Meta dashboard:
+   - **Callback URL**: `https://yourapp.vercel.app/api/whatsapp`
+   - **Verify Token**: Same as `WHATSAPP_VERIFY_TOKEN`
+   - **Subscribed Fields**: `messages`
 
 **WhatsApp Features:**
-- Natural language invoice creation: "Create invoice for ABC Corp $5000 for consulting"
-- View invoices and athletes
-- Send receipt photos for automatic processing
+- **Interactive Buttons**: Tap to select Invoices, Athletes, Receipts
+- **List Messages**: Browse invoices/athletes in a scrollable list
+- **Natural Language**: "Create invoice for ABC Corp $5000 for consulting"
+- **Receipt Photos**: Send a photo and AI extracts the data
+- **Quick Actions**: Buttons on confirmations (Send Now, Add Another, etc.)
 
 ### 6. Cron Job (Scheduled Tasks)
 
@@ -270,4 +278,4 @@ If Telegram bot is configured:
 - **Email**: Resend
 - **LLM**: OpenAI-compatible API
 - **Storage**: Google Drive API
-- **Messaging**: Telegram Bot API, Twilio WhatsApp
+- **Messaging**: Telegram Bot API, WhatsApp Business Cloud API (Meta)

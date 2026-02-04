@@ -30,7 +30,6 @@
     "react-dropzone": "^14.3.0",
     "resend": "^4.0.0",
     "telegraf": "^4.16.0",
-    "twilio": "^5.11.2",
     "uuid": "^11.0.0",
     "zod": "^3.23.0",
     "zustand": "^5.0.0"
